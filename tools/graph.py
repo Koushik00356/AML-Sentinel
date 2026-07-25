@@ -105,51 +105,88 @@ def detect_cycles(df, max_len=6, min_amount_usd=1000, max_nodes=60000):
     return hits
 
 
-def detect_layering(df, min_hops=3, max_hops=5, min_amount_usd=5000,
-                    max_gap_hours=72, retention=0.7):
-    """Funds traced through a chain of intermediaries in a short window."""
+def detect_layering(df, min_hops=3, max_hops=5, min_amount_usd=10000,
+                    max_gap_hours=72, retention=0.7, max_seeds=50000):
+    """Follow value through successive accounts using vectorised self-joins."""
     d = to_usd(df)
-    d = d[d["amount_usd"] >= min_amount_usd].sort_values("timestamp")
+    d = d[d["amount_usd"] >= min_amount_usd][
+        ["tx_id", "sender", "receiver", "amount_usd", "timestamp"]
+    ].sort_values("amount_usd", ascending=False).head(max_seeds)
+
     if d.empty:
         return []
 
-    by_sender = {s: g for s, g in d.groupby("sender")}
-    hits = []
+    chains = d.rename(columns={
+        "sender": "origin", "receiver": "current",
+        "amount_usd": "amount", "timestamp": "t",
+    }).copy()
+    chains["hops"] = 1
+    chains["t0"] = chains["t"]
+    chains["path"] = [[o, c] for o, c in zip(chains["origin"], chains["current"])]
 
-    for _, seed in d.iterrows():
-        chain = [(seed["sender"], seed["receiver"],
-                  seed["amount_usd"], seed["timestamp"])]
-        current, amount, t = seed["receiver"], seed["amount_usd"], seed["timestamp"]
+    completed = []
 
-        while len(chain) < max_hops:
-            nxt = by_sender.get(current)
-            if nxt is None:
-                break
-            window = nxt[
-                (nxt["timestamp"] > t) &
-                (nxt["timestamp"] <= t + pd.Timedelta(hours=max_gap_hours)) &
-                (nxt["amount_usd"] >= amount * retention) &
-                (nxt["amount_usd"] <= amount * 1.05)
-            ]
-            if window.empty:
-                break
-            step = window.iloc[0]
-            if step["receiver"] in [c[0] for c in chain]:
-                break
-            chain.append((step["sender"], step["receiver"],
-                          step["amount_usd"], step["timestamp"]))
-            current, amount, t = step["receiver"], step["amount_usd"], step["timestamp"]
+    for _ in range(max_hops - 1):
+        if chains.empty:
+            break
 
-        if len(chain) >= min_hops:
-            span = (chain[-1][3] - chain[0][3]).total_seconds() / 3600
-            hits.append({
-                "account": chain[0][0],
-                "typology": "layering",
-                "tx_ids": [],
-                "hops": len(chain),
-                "path": [c[0] for c in chain] + [chain[-1][1]],
-                "amount_usd": float(chain[0][2]),
-                "span_hours": round(span, 1),
-                "count": len(chain),
-            })
-    return hits
+        nxt = chains.merge(
+            d, left_on="current", right_on="sender",
+            suffixes=("", "_n"),
+        )
+        if nxt.empty:
+            completed.append(chains)
+            break
+
+        gap = (nxt["timestamp"] - nxt["t"]).dt.total_seconds() / 3600
+        valid = (
+            (gap > 0) & (gap <= max_gap_hours)
+            & (nxt["amount_usd"] >= nxt["amount"] * retention)
+            & (nxt["amount_usd"] <= nxt["amount"] * 1.05)
+        )
+        nxt = nxt[valid]
+
+        # drop revisits
+        keep = [rec not in p for rec, p in zip(nxt["receiver"], nxt["path"])]
+        nxt = nxt[keep]
+
+        extended_ids = set(nxt["tx_id"])
+        stalled = chains[~chains["tx_id"].isin(extended_ids)]
+        if not stalled.empty:
+            completed.append(stalled)
+
+        if nxt.empty:
+            break
+
+        # keep one continuation per chain
+        nxt = nxt.sort_values("timestamp").groupby("tx_id", as_index=False).first()
+
+        chains = pd.DataFrame({
+            "tx_id": nxt["tx_id"],
+            "origin": nxt["origin"],
+            "current": nxt["receiver"],
+            "amount": nxt["amount_usd"],
+            "t": nxt["timestamp"],
+            "t0": nxt["t0"],
+            "hops": nxt["hops"] + 1,
+            "path": [p + [r] for p, r in zip(nxt["path"], nxt["receiver"])],
+        })
+
+    if not chains.empty:
+        completed.append(chains)
+    if not completed:
+        return []
+
+    final = pd.concat(completed, ignore_index=True)
+    final = final[final["hops"] >= min_hops]
+
+    return [{
+        "account": r["origin"],
+        "typology": "layering",
+        "tx_ids": [r["tx_id"]],
+        "hops": int(r["hops"]),
+        "path": r["path"],
+        "amount_usd": float(r["amount"]),
+        "span_hours": round((r["t"] - r["t0"]).total_seconds() / 3600, 1),
+        "count": int(r["hops"]),
+    } for _, r in final.iterrows()]
