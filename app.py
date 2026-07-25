@@ -8,10 +8,7 @@ from tools.filters import filter_analyzable
 from agent.intent_parser import parse
 from agent.planner import build_plan
 from agent.executor import Executor
-
-st.set_page_config(page_title="AML Sentinel", page_icon="🛡", layout="wide")
-
-RISK_COLOR = {"high": "#c0392b", "medium": "#d68910", "low": "#7f8c8d"}
+from assets.style import CSS, funnel, case_card
 
 
 def cli_args():
@@ -158,6 +155,26 @@ def main():
             st.markdown(f"**Recommended action — {r['action'].upper()}:** "
                         f"{r['action_text']}")
 
+    
+        st.markdown(CSS, unsafe_allow_html=True)
+
+        # replace the trace dataframe block
+        st.markdown("<div class='eyebrow'>Execution trace</div>", unsafe_allow_html=True)
+        st.markdown(funnel(out["trace"], plan.skipped), unsafe_allow_html=True)
+
+        # replace the results loop
+        st.markdown(f"<div class='eyebrow'>Flagged accounts — {len(results)}</div>",
+                    unsafe_allow_html=True)
+        for r in results:
+            st.markdown(case_card(r), unsafe_allow_html=True)
+
+        st.set_page_config(page_title="AML Sentinel", page_icon="🛡", layout="wide")
+
+        RISK_COLOR = {"high": "#c0392b", "medium": "#d68910", "low": "#7f8c8d"}
+
+
+
 
 if __name__ == "__main__":
     main()
+
