@@ -1,0 +1,39 @@
+{
+  "currency_thresholds": {
+    "US Dollar": 10000,
+    "Euro": 10000,
+    "Yuan": 50000,
+    "UK Pound": 10000,
+    "Yen": 1000000,
+    "Canadian Dollar": 10000,
+    "Australian Dollar": 10000,
+    "Rupee": 1000000,
+    "Mexican Peso": 200000
+  },
+  "default_threshold_usd": 10000,
+  "no_threshold_currencies": ["Bitcoin"],
+  "fx_to_usd": {
+    "US Dollar": 1.0,
+    "Euro": 1.08,
+    "Yuan": 0.14,
+    "UK Pound": 1.27,
+    "Yen": 0.0067,
+    "Canadian Dollar": 0.73,
+    "Australian Dollar": 0.66,
+    "Rupee": 0.012,
+    "Mexican Peso": 0.058,
+    "Bitcoin": 65000.0,
+    "Swiss Franc": 1.13,
+    "Brazil Real": 0.18,
+    "Saudi Riyal": 0.27,
+    "Shekel": 0.27,
+    "Ruble": 0.011
+  },
+  "near_floor": 0.85,
+  "structuring": { "window_days": 5, "min_count": 4 },
+  "smurfing": { "window_days": 3, "min_senders": 9, "min_total_usd": 20000 },
+  "velocity": { "window_hours": 24, "min_burst": 25, "min_total_usd": 50000 },
+  "rapid_cashout": { "max_gap_hours": 24, "ratio_low": 0.85, "ratio_high": 1.15, "min_amount_usd": 5000, "min_events": 2 },
+  "risk_bands": { "medium": 0.35, "high": 0.65 }
+  
+}
