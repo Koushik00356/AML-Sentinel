@@ -1,10 +1,46 @@
+﻿# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Environments
 .venv/
 venv/
+env/
 .env
+
+# Secrets
+kaggle.json
+.kaggle/
+*.key
+
+# Data — never commit raw datasets
 data/raw/
 *.csv
+*.zip
+*.parquet
 !data/sample/*.csv
+
+# Models / caches
+*.pkl
+*.joblib
+.cache/
+
+# Notebooks
 .ipynb_checkpoints/
+*.ipynb
+!notebooks/eda.ipynb
+
+# Editors / OS
+.vscode/
+.idea/
 .DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Output
+outputs/
+*.log
