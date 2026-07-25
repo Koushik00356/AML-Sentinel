@@ -67,27 +67,36 @@ def account_features(df: pd.DataFrame,
     ).fillna(0)
     return acct
 
+def rapid_cashout(df, max_gap_hours=24, ratio_low=0.85, ratio_high=1.15,
+                  min_amount_usd=5000, min_events=2):
+    from tools.currency import to_usd
+    d = to_usd(df)
 
-def rapid_cashout(df: pd.DataFrame, max_gap_hours: int = 48,
-                  min_ratio: float = 0.8) -> pd.DataFrame:
-    inflow = (df[["receiver", "timestamp", "amount", "tx_id"]]
+    inflow = (d[["receiver", "timestamp", "amount_usd", "tx_id"]]
               .rename(columns={"receiver": "account", "timestamp": "in_time",
-                               "amount": "in_amount", "tx_id": "in_tx"})
+                               "amount_usd": "in_amount", "tx_id": "in_tx"})
               .sort_values("in_time"))
-    outflow = (df[["sender", "timestamp", "amount", "tx_id"]]
+    outflow = (d[["sender", "timestamp", "amount_usd", "tx_id"]]
                .rename(columns={"sender": "account", "timestamp": "out_time",
-                                "amount": "out_amount", "tx_id": "out_tx"})
+                                "amount_usd": "out_amount", "tx_id": "out_tx"})
                .sort_values("out_time"))
 
-    merged = pd.merge_asof(
+    m = pd.merge_asof(
         outflow, inflow,
         left_on="out_time", right_on="in_time",
         by="account", direction="backward",
         tolerance=pd.Timedelta(hours=max_gap_hours),
     ).dropna(subset=["in_time"])
 
-    merged["gap_hours"] = (
-        merged["out_time"] - merged["in_time"]
-    ).dt.total_seconds() / 3600
-    merged["cashout_ratio"] = merged["out_amount"] / merged["in_amount"]
-    return merged[merged["cashout_ratio"] >= min_ratio].reset_index(drop=True)
+    m["gap_hours"] = (m["out_time"] - m["in_time"]).dt.total_seconds() / 3600
+    m["cashout_ratio"] = m["out_amount"] / m["in_amount"]
+
+    m = m[
+        (m["cashout_ratio"].between(ratio_low, ratio_high)) &
+        (m["in_amount"] >= min_amount_usd)
+    ]
+
+    # require repeated pass-through, not a single coincidence
+    counts = m.groupby("account").size()
+    repeat = counts[counts >= min_events].index
+    return m[m["account"].isin(repeat)].reset_index(drop=True)
