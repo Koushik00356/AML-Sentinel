@@ -32,3 +32,23 @@ The application uses this by default.
 Source: https://www.kaggle.com/datasets/ealtman2019/ibm-transactions-for-anti-money-laundering-aml
 Not redistributed here due to size and licensing. Download `HI-Small_Trans.csv`
 into `data/raw/` and run:
+
+
+
+### Multi-currency handling
+
+Transactions span multiple currencies (US Dollar 61%, Euro 38%, Yuan 1%
+in HI-Small). Two mechanisms are applied:
+
+- **Threshold-based typologies** (structuring, smurfing) evaluate each
+  transaction against the reporting threshold of its *own* currency —
+  USD 10,000 (FinCEN CTR), EUR 10,000 (EU AMLD cash threshold),
+  CNY 50,000 (PBOC large-value reporting). Non-listed currencies fall back
+  to a USD-equivalent conversion. Cryptocurrency is excluded from threshold
+  rules, as no equivalent cash-reporting trigger applies.
+- **Cross-account comparisons** (velocity, anomaly detection, aggregate
+  flows) normalise to `amount_usd` using static reference rates, so
+  behavioural comparison is not distorted by denomination.
+
+Non-USD thresholds and FX rates are approximate reference values, not
+statutory or time-of-transaction figures.
