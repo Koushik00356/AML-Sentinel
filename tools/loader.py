@@ -1,0 +1,53 @@
+import pandas as pd
+from pathlib import Path
+
+CANONICAL = ["timestamp", "tx_id", "sender", "receiver",
+             "amount", "currency", "tx_type", "is_laundering"]
+
+SCHEMA_MAPS = {
+    "ibm_aml": {
+        "Timestamp": "timestamp",
+        "Account": "sender",
+        "Account.1": "receiver",
+        "Amount Paid": "amount",
+        "Payment Currency": "currency",
+        "Payment Format": "tx_type",
+        "Is Laundering": "is_laundering",
+    },
+    "synthetic": {
+        "ts": "timestamp",
+        "tx_id": "tx_id",
+        "from_acct": "sender",
+        "to_acct": "receiver",
+        "amount": "amount",
+        "currency": "currency",
+        "channel": "tx_type",
+        "label": "is_laundering",
+    },
+}
+
+
+def load(path: str | Path, schema: str = "ibm_aml",
+         nrows: int | None = None) -> pd.DataFrame:
+    if schema not in SCHEMA_MAPS:
+        raise ValueError(f"unknown schema '{schema}'; "
+                         f"available: {list(SCHEMA_MAPS)}")
+
+    df = pd.read_csv(path, nrows=nrows)
+    df = df.rename(columns=SCHEMA_MAPS[schema])
+
+    if "tx_id" not in df.columns:
+        df["tx_id"] = df.index.astype(str)
+
+    for col in CANONICAL:
+        if col not in df.columns:
+            df[col] = pd.NA
+
+    df = df[CANONICAL].copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
+    df["sender"] = df["sender"].astype(str)
+    df["receiver"] = df["receiver"].astype(str)
+
+    df = df.dropna(subset=["timestamp", "amount"])
+    return df.sort_values("timestamp").reset_index(drop=True)
