@@ -58,6 +58,28 @@ def evaluate(df: pd.DataFrame) -> pd.DataFrame:
               f"P={precision:.2%}  R={recall:.2%}  F1={f1:.3f}  "
               f"[{elapsed:.1f}s]")
 
+    # ensemble: accounts flagged by N or more distinct detectors
+    from collections import Counter
+    all_hits = []
+    for name, fn in DETECTORS.items():
+        try:
+            all_hits.extend((str(h["account"]), name) for h in fn(df))
+        except Exception:
+            pass
+
+    counts = Counter()
+    for acct, det in set(all_hits):
+        counts[acct] += 1
+
+    print("\nensemble (accounts flagged by N+ independent detectors):")
+    for n in (1, 2, 3, 4):
+        flagged = {a for a, c in counts.items() if c >= n}
+        tp = len(flagged & truth)
+        p = tp / len(flagged) if flagged else 0
+        r = tp / len(truth) if truth else 0
+        print(f"  N>={n}: accounts={len(flagged):<7} TP={tp:<5} "
+              f"P={p:.2%} ({p/0.011:.1f}x baseline)  R={r:.2%}")
+
     return pd.DataFrame(rows)
 
 
