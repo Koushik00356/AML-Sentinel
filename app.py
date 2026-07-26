@@ -40,7 +40,7 @@ EXAMPLES = [
 from pathlib import Path
 
 PRESETS = {
-    "Demo slice (400k, bundled)": ("data/sample/demo_transactions.parquet", "demo"),
+    "Demo slice (250k, bundled)": ("data/sample/demo_transactions.csv", "demo"),
     "IBM HI-Small (high illicit rate)": ("data/raw/HI-Small_Trans.csv", "ibm_aml"),
     "IBM LI-Small (low illicit rate)": ("data/raw/LI-Small_Trans.csv", "ibm_aml"),
 }
@@ -50,7 +50,7 @@ PRESETS = {
 
 def cli_args():
     p = argparse.ArgumentParser(conflict_handler="resolve")
-    p.add_argument("--data", default="data/sample/demo_transactions.parquet")
+    p.add_argument("--data", default="data/sample/demo_transactions.csv")
     p.add_argument("--schema", default="demo")
     known, _ = p.parse_known_args(sys.argv[1:])
     return known
@@ -132,7 +132,7 @@ def sidebar(args):
             if not Path(path).exists():
                 st.caption("Not present locally — see README for download "
                            "instructions. Falling back to the bundled slice.")
-                path, schema = PRESETS["Demo slice (400k, bundled)"]
+                path, schema = PRESETS["Demo slice (250k, bundled)"]
 
         elif source == "Local path":
             path = st.text_input("Path", args.data, label_visibility="collapsed")
