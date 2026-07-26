@@ -85,7 +85,6 @@ def evaluate(df: pd.DataFrame) -> pd.DataFrame:
 
     # add to evaluate() in evaluation/metrics.py
     from collections import defaultdict
-
     detector_hits = defaultdict(set)
     for name, fn in DETECTORS.items():
         try:
@@ -94,16 +93,19 @@ def evaluate(df: pd.DataFrame) -> pd.DataFrame:
         except Exception:
             pass
 
-    print("\nensemble — accounts confirmed by N independent detectors")
-    base = len(truth) / len(set(df["sender"]) | set(df["receiver"]))
+    total_accounts = pd.concat([df["sender"], df["receiver"]]).nunique()
+    base = len(truth) / total_accounts
+
+    print(f"\nbaseline: {base:.2%} of accounts are laundering-involved")
+    print("ensemble — accounts confirmed by N independent detectors")
     for n in (1, 2, 3, 4):
         flagged = {a for a, d in detector_hits.items() if len(d) >= n}
         tp = len(flagged & truth)
         p = tp / len(flagged) if flagged else 0
         r = tp / len(truth) if truth else 0
-        print(f"  N>={n}: accounts={len(flagged):<7} TP={tp:<5} "
-            f"P={p:.2%} ({p/base:.1f}x baseline)  R={r:.2%}")
-
+        print(f"  N>={n}: accounts={len(flagged):<6} TP={tp:<5} "
+              f"P={p:.2%} ({p/base:.1f}x baseline)  R={r:.2%}")
+        
     return pd.DataFrame(rows)
 
 

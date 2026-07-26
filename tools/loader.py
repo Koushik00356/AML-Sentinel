@@ -5,6 +5,7 @@ CANONICAL = ["timestamp", "tx_id", "sender", "receiver",
              "amount", "currency", "tx_type", "is_laundering"]
 
 SCHEMA_MAPS = {
+    "demo": {}, 
     "ibm_aml": {
         "Timestamp": "timestamp",
         "Account": "sender",
