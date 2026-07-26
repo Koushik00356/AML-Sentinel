@@ -80,6 +80,27 @@ def evaluate(df: pd.DataFrame) -> pd.DataFrame:
         print(f"  N>={n}: accounts={len(flagged):<7} TP={tp:<5} "
               f"P={p:.2%} ({p/0.011:.1f}x baseline)  R={r:.2%}")
 
+    # add to evaluate() in evaluation/metrics.py
+    from collections import defaultdict
+
+    detector_hits = defaultdict(set)
+    for name, fn in DETECTORS.items():
+        try:
+            for h in fn(df):
+                detector_hits[str(h["account"])].add(name)
+        except Exception:
+            pass
+
+    print("\nensemble — accounts confirmed by N independent detectors")
+    base = len(truth) / len(set(df["sender"]) | set(df["receiver"]))
+    for n in (1, 2, 3, 4):
+        flagged = {a for a, d in detector_hits.items() if len(d) >= n}
+        tp = len(flagged & truth)
+        p = tp / len(flagged) if flagged else 0
+        r = tp / len(truth) if truth else 0
+        print(f"  N>={n}: accounts={len(flagged):<7} TP={tp:<5} "
+            f"P={p:.2%} ({p/base:.1f}x baseline)  R={r:.2%}")
+
     return pd.DataFrame(rows)
 
 
