@@ -4,7 +4,8 @@ from tools.rules import (detect_structuring, detect_smurfing,
                          detect_velocity, detect_rapid_cashout)
 from tools.risk import score_hits
 from tools.explain import explain_account
-
+from dotenv import load_dotenv
+load_dotenv()
 DETECTORS = {
     "structuring": detect_structuring,
     "smurfing": detect_smurfing,
