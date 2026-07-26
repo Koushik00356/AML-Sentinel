@@ -5,6 +5,8 @@ import os
 import re
 from datetime import datetime
 
+from streamlit import context
+
 from agent.schemas import Intent, IntentType, Typology, Filters
 
 TYPOLOGY_WORDS = {
@@ -222,7 +224,7 @@ def parse(query: str, use_llm: bool = True) -> Intent:
         return regex_intent
 
     # analytical long tail: try the constrained spec first
-    spec = request_spec(query)
+    spec = request_spec(query, context=context)
 
     if spec and not spec.get("unsupported"):
         ok, reason = validate(spec)
