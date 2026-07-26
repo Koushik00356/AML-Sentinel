@@ -1,6 +1,18 @@
+"""Convert detector hits into risk bands.
+
+Confirmation is the primary signal: an account flagged by several independent
+detectors is far more likely to be genuine than one flagged by a single weak
+signal. Weighting by confirmation count is how alert noise is suppressed
+without discarding recall.
+"""
+
+from __future__ import annotations
+
 import json
 from pathlib import Path
+
 import pandas as pd
+
 from agent.schemas import RiskLevel
 
 CONFIG_PATH = Path(__file__).resolve().parents[1] / "config" / "thresholds.json"
@@ -9,63 +21,80 @@ TYPOLOGY_WEIGHT = {
     "structuring": 0.40,
     "smurfing": 0.35,
     "layering": 0.40,
+    "cycle": 0.45,
+    "fan_in": 0.35,
+    "fan_out": 0.35,
     "rapid_cashout": 0.30,
     "velocity": 0.20,
     "ml_anomaly": 0.25,
 }
 
+CONFIRMATION_MULTIPLIER = {1: 0.55, 2: 1.00, 3: 1.35, 4: 1.60}
+
 
 def load_config() -> dict:
     with open(CONFIG_PATH, encoding="utf-8-sig") as f:
-        _CFG = json.load(f)
-    return _CFG
+        return json.load(f)
 
 
 def _evidence_strength(hit: dict) -> float:
-    """Scale 0-1 based on how far past the minimum the evidence goes."""
+    """0-1 scale of how far the evidence exceeds the detector's minimum."""
     typ = hit.get("typology")
+
     if typ == "structuring":
         return min(hit.get("count", 0) / 10.0, 1.0)
     if typ == "smurfing":
-        return min(hit.get("unique_senders", 0) / 10.0, 1.0)
+        return min(hit.get("unique_senders", 0) / 12.0, 1.0)
     if typ == "velocity":
-        base = hit.get("baseline", 0) or 1
-        return min(hit.get("velocity", 0) / (base * 5), 1.0)
+        baseline = hit.get("baseline", 0) or 1
+        return min(hit.get("velocity", 0) / (baseline * 5), 1.0)
     if typ == "rapid_cashout":
-        gap = hit.get("gap_hours", 48)
-        return max(0.0, 1.0 - gap / 48.0)
+        return min(hit.get("events", 1) / 5.0, 1.0)
+    if typ == "fan_in":
+        return min(hit.get("sources", 0) / 20.0, 1.0)
+    if typ == "fan_out":
+        return min(hit.get("targets", 0) / 20.0, 1.0)
+    if typ == "cycle":
+        return min(hit.get("hops", 3) / 6.0, 1.0)
+    if typ == "layering":
+        return min(hit.get("hops", 3) / 5.0, 1.0)
+    if typ == "ml_anomaly":
+        return float(hit.get("score", 0.5))
+
     return 0.5
 
 
-def score_hits(hits: list[dict]) -> pd.DataFrame:
-    """Aggregate detector hits into one risk row per account."""
+def score_hits(hits: list[dict], min_confirmations: int = 1) -> pd.DataFrame:
+    """Aggregate detector hits into one scored row per account."""
+    columns = ["account", "score", "risk", "typologies", "confirmations", "hits"]
+
     if not hits:
-        return pd.DataFrame(columns=["account", "score", "risk",
-                                     "typologies", "hits"])
+        return pd.DataFrame(columns=columns)
 
     by_account: dict[str, list[dict]] = {}
-    for h in hits:
-        by_account.setdefault(str(h["account"]), []).append(h)
+    for hit in hits:
+        by_account.setdefault(str(hit["account"]), []).append(hit)
 
-    cfg = load_config()["risk_bands"]
+    bands = load_config()["risk_bands"]
     rows = []
 
-    for account, acct_hits in by_account.items():
-        score = 0.0
-        for h in acct_hits:
-            w = TYPOLOGY_WEIGHT.get(h.get("typology"), 0.2)
-            score += w * _evidence_strength(h)
+    for account, account_hits in by_account.items():
+        typologies = sorted({h["typology"] for h in account_hits})
+        confirmations = len(typologies)
 
-        # multiple distinct typologies compound suspicion
-        typologies = sorted({h["typology"] for h in acct_hits})
-        if len(typologies) > 1:
-            score *= 1.0 + 0.15 * (len(typologies) - 1)
+        if confirmations < min_confirmations:
+            continue
 
+        score = sum(
+            TYPOLOGY_WEIGHT.get(h.get("typology"), 0.20) * _evidence_strength(h)
+            for h in account_hits
+        )
+        score *= CONFIRMATION_MULTIPLIER.get(min(confirmations, 4), 1.60)
         score = round(min(score, 1.0), 3)
 
-        if score >= cfg["high"]:
+        if score >= bands["high"]:
             risk = RiskLevel.HIGH
-        elif score >= cfg["medium"]:
+        elif score >= bands["medium"]:
             risk = RiskLevel.MEDIUM
         else:
             risk = RiskLevel.LOW
@@ -75,9 +104,13 @@ def score_hits(hits: list[dict]) -> pd.DataFrame:
             "score": score,
             "risk": risk.value,
             "typologies": ", ".join(typologies),
-            "hits": acct_hits,
+            "confirmations": confirmations,
+            "hits": account_hits,
         })
 
+    if not rows:
+        return pd.DataFrame(columns=columns)
+
     return (pd.DataFrame(rows)
-            .sort_values("score", ascending=False)
+            .sort_values(["score", "confirmations"], ascending=False)
             .reset_index(drop=True))
