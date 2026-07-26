@@ -44,3 +44,6 @@ Thumbs.db
 # Output
 outputs/
 *.log
+
+!data/sample/*.csv
+!data/sample/*.parquet

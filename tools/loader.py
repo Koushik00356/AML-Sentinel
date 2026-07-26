@@ -74,8 +74,11 @@ def _normalise(df: pd.DataFrame, schema: str) -> pd.DataFrame:
 
 
 def load(path, schema="ibm_aml", nrows=None):
-    return _normalise(pd.read_csv(path, nrows=nrows), schema)
-
+        p = str(path)
+        df = (pd.read_parquet(p) if p.endswith(".parquet")
+            else pd.read_csv(p, nrows=nrows))
+        return _normalise(df, schema)
 
 def load_uploaded(file_obj, schema="demo", nrows=None):
     return _normalise(pd.read_csv(file_obj, nrows=nrows), schema)
+
