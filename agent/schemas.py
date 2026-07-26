@@ -12,6 +12,8 @@ class IntentType(str, Enum):
     EXPLAIN_FLAG = "explain_flag"
     CAPABILITY = "capability"
     UNKNOWN = "unknown"
+    GENERIC_ANALYSIS = "generic_analysis"
+    DATA_SUMMARY = "data_summary"
 
 
 class Typology(str, Enum):

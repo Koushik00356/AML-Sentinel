@@ -111,6 +111,21 @@ def build_plan(intent: Intent) -> ExecutionPlan:
         plan.skipped += [(t, "no re-analysis needed to explain a prior flag")
                          for t in ALL_TOOLS if t not in {"explain"}]
 
+    elif intent.intent_type == IntentType.DATA_SUMMARY:
+        plan.steps = ["describe"]
+        plan.reasons = {"describe": "factual question about the dataset; "
+                                    "no detection required"}
+        plan.skipped = [(t, "metadata question needs no analysis")
+                        for t in ALL_TOOLS]
+        return plan
+
+    elif intent.intent_type == IntentType.GENERIC_ANALYSIS:
+        plan.steps = ["generic_query"]
+        plan.reasons = {"generic_query":
+                        "question answered by direct aggregation over the data"}
+        plan.skipped = [(t, "no typology detection required") for t in ALL_TOOLS]
+        return plan
+
     else:
         plan.steps = ["clarify"]
         plan.skipped = [(t, "intent not recognised") for t in ALL_TOOLS]
