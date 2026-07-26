@@ -8,6 +8,8 @@ from tools.rules import (detect_structuring, detect_smurfing,
                          detect_velocity, detect_rapid_cashout)
 from tools.graph import (detect_fan_in, detect_fan_out,
                          detect_cycles, detect_layering)
+from tools.anomaly import detect_ml_anomaly
+
 
 DETECTORS = {
     "structuring":   detect_structuring,
@@ -18,6 +20,7 @@ DETECTORS = {
     "fan_out":       detect_fan_out,
     "cycle":         detect_cycles,
     "layering":      detect_layering,
+    "anomaly_ml":    detect_ml_anomaly,
 }
 
 
