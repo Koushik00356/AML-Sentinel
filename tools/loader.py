@@ -72,12 +72,15 @@ def _normalise(df: pd.DataFrame, schema: str) -> pd.DataFrame:
     return df.dropna(subset=["timestamp", "amount"]).sort_values(
         "timestamp").reset_index(drop=True)
 
-
 def load(path, schema="ibm_aml", nrows=None):
-        p = str(path)
-        df = (pd.read_parquet(p) if p.endswith(".parquet")
-            else pd.read_csv(p, nrows=nrows))
-        return _normalise(df, schema)
+    p = str(path)
+    if p.endswith(".parquet"):
+        df = pd.read_parquet(p)
+        if nrows:
+            df = df.head(nrows)
+    else:
+        df = pd.read_csv(p, nrows=nrows)
+    return _normalise(df, schema)
 
 def load_uploaded(file_obj, schema="demo", nrows=None):
     return _normalise(pd.read_csv(file_obj, nrows=nrows), schema)

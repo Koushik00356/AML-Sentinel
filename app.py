@@ -49,8 +49,7 @@ PRESETS = {
 # --------------------------------------------------------------------------- #
 
 def cli_args():
-    p = argparse.ArgumentParser()
-    p.add_argument("--data", default="data/sample/demo_transactions.csv")
+    p = argparse.ArgumentParser(conflict_handler="resolve")
     p.add_argument("--data", default="data/sample/demo_transactions.parquet")
     p.add_argument("--schema", default="demo")
     known, _ = p.parse_known_args(sys.argv[1:])
