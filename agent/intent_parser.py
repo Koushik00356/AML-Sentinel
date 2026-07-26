@@ -28,13 +28,19 @@ ACCOUNT_ID = r"\b(?:customer|account|acct|id)\s*(?:id\s*)?[:#]?\s*([A-Za-z]?\d{3
 BARE_ID = r"\b([A-F0-9]{6,9})\b"
 
 DATA_SUMMARY = (
-    r"how many (transactions?|accounts?|customers?|records?|rows?)"
-    r"|total (number|no\.?|count) of"
-    r"|what (is|are) the (date range|time period|currencies|size)"
+    r"^\s*(how many (transactions?|accounts?|customers?|records?|rows?)"
+    r"|what('?s| is| are)? the (date range|time period|size)"
     r"|describe the (data|dataset)"
     r"|dataset (summary|overview|stats|statistics)"
-    r"|how (big|large) is"
+    r"|how (big|large) is the (data|dataset))\s*\??\s*$"
 )
+DOMAIN_WORDS = (
+    r"transaction|account|customer|payment|transfer|deposit|withdraw"
+    r"|launder|suspicious|risk|flag|fraud|structur|smurf|layer|cash"
+    r"|currency|amount|sender|receiver|wire|cheque|ach|volume|counterpart"
+)
+
+
 
 
 
@@ -204,27 +210,45 @@ def parse_llm(query: str) -> Intent | None:
         return None
 
 
+
 def parse(query: str, use_llm: bool = True) -> Intent:
+    import json as _json
+    from agent.query_spec import request_spec, validate
+
     regex_intent = parse_regex(query)
 
-    if use_llm and regex_intent.confidence < 0.85:
-        llm_intent = parse_llm(query)
-        if llm_intent and llm_intent.intent_type != IntentType.UNKNOWN:
-            llm_intent.notes.append("regex fallback available")
-            return llm_intent
+    # regex was confident — trust it, no LLM call needed
+    if regex_intent.confidence >= 0.85 or not use_llm:
+        return regex_intent
 
-        # nothing recognised — try the generic analytical path
-        if regex_intent.intent_type == IntentType.UNKNOWN:
-            from agent.query_spec import request_spec, validate
-            spec = request_spec(query)
-            if spec:
-                ok, reason = validate(spec)
-                if ok:
-                    regex_intent.intent_type = IntentType.GENERIC_ANALYSIS
-                    regex_intent.confidence = 0.75
-                    regex_intent.parser_used = "llm-spec"
-                    regex_intent.notes.append(f"spec:{json.dumps(spec)}")
-                else:
-                    regex_intent.notes.append(f"unsupported:{reason}")
+    # analytical long tail: try the constrained spec first
+    spec = request_spec(query)
+
+    if spec and not spec.get("unsupported"):
+        ok, reason = validate(spec)
+        if ok:
+            regex_intent.intent_type = IntentType.GENERIC_ANALYSIS
+            regex_intent.confidence = 0.8
+            regex_intent.parser_used = "llm-spec"
+            regex_intent.notes.append(f"spec:{_json.dumps(spec)}")
+            return regex_intent
+        regex_intent.notes.append(f"spec invalid: {reason}")
+
+    # spec says it can't be expressed
+    spec_unsupported = bool(spec and spec.get("unsupported"))
+    on_topic = bool(re.search(DOMAIN_WORDS, query.lower()))
+
+    if spec_unsupported and not on_topic:
+        regex_intent.intent_type = IntentType.UNKNOWN
+        regex_intent.confidence = 0.0
+        regex_intent.notes.append(
+            f"out of scope: {spec.get('reason', 'not answerable from transaction data')}")
+        return regex_intent
+
+    # on-topic but not spec-expressible (e.g. graph typologies) — classify
+    llm_intent = parse_llm(query)
+    if llm_intent and llm_intent.intent_type != IntentType.UNKNOWN:
+        llm_intent.notes.append("classified after spec fallback")
+        return llm_intent
 
     return regex_intent

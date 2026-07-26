@@ -191,5 +191,10 @@ class Executor:
                 "fan-in, cycles), asking about a specific account, or say "
                 "\"analyse this dataset for suspicious activity\".")
 
+        oos = next((n[14:] for n in i.notes if n.startswith("out of scope:")), None)
+        if oos:
+            msg = (f"That's outside what I can answer — {oos}. "
+                   f"I work only from the transaction dataset loaded here.")
+
         return {"intent": i, "plan": plan, "trace": trace, "results": [],
                 "eda": None, "elapsed": 0, "message": msg}
