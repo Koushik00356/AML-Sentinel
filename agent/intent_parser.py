@@ -1,6 +1,6 @@
 """Query → structured intent. Regex-first so the system runs with no API key."""
 from __future__ import annotations
-
+import json
 import os
 import re
 from datetime import datetime
@@ -26,6 +26,16 @@ EXPLAIN = r"why (?:was|is|were)|explain (?:the )?flag|reason for"
 
 ACCOUNT_ID = r"\b(?:customer|account|acct|id)\s*(?:id\s*)?[:#]?\s*([A-Za-z]?\d{3,})\b"
 BARE_ID = r"\b([A-F0-9]{6,9})\b"
+
+DATA_SUMMARY = (
+    r"how many (transactions?|accounts?|customers?|records?|rows?)"
+    r"|total (number|no\.?|count) of"
+    r"|what (is|are) the (date range|time period|currencies|size)"
+    r"|describe the (data|dataset)"
+    r"|dataset (summary|overview|stats|statistics)"
+    r"|how (big|large) is"
+)
+
 
 
 def _num(text: str) -> float | None:
@@ -92,6 +102,11 @@ def parse_regex(query: str) -> Intent:
     if re.match(CAPABILITY, ql):
         intent.intent_type = IntentType.CAPABILITY
         intent.confidence = 1.0
+        return intent
+
+    if re.search(DATA_SUMMARY, ql):
+        intent.intent_type = IntentType.DATA_SUMMARY
+        intent.confidence = 0.95
         return intent
 
     ids = re.findall(ACCOUNT_ID, q, flags=re.I)
@@ -190,7 +205,6 @@ def parse_llm(query: str) -> Intent | None:
 
 
 def parse(query: str, use_llm: bool = True) -> Intent:
-    """LLM if available and confident, regex otherwise. Regex always works."""
     regex_intent = parse_regex(query)
 
     if use_llm and regex_intent.confidence < 0.85:
@@ -198,5 +212,19 @@ def parse(query: str, use_llm: bool = True) -> Intent:
         if llm_intent and llm_intent.intent_type != IntentType.UNKNOWN:
             llm_intent.notes.append("regex fallback available")
             return llm_intent
+
+        # nothing recognised — try the generic analytical path
+        if regex_intent.intent_type == IntentType.UNKNOWN:
+            from agent.query_spec import request_spec, validate
+            spec = request_spec(query)
+            if spec:
+                ok, reason = validate(spec)
+                if ok:
+                    regex_intent.intent_type = IntentType.GENERIC_ANALYSIS
+                    regex_intent.confidence = 0.75
+                    regex_intent.parser_used = "llm-spec"
+                    regex_intent.notes.append(f"spec:{json.dumps(spec)}")
+                else:
+                    regex_intent.notes.append(f"unsupported:{reason}")
 
     return regex_intent

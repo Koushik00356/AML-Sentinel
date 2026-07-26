@@ -29,8 +29,16 @@ BROAD_SCAN_SAMPLE = 400_000
 
 
 class Executor:
-    def __init__(self, df: pd.DataFrame):
+    def __init__(self, df, on_step=None, memory=None):
         self.full = df
+        self.on_step = on_step
+        self.memory = memory or []
+
+    def _record(self, trace, call):
+        trace.append(call)
+        if self.on_step:
+            self.on_step(call)
+        return call
 
     def run(self, plan: ExecutionPlan) -> dict:
         intent = plan.intent
@@ -49,7 +57,7 @@ class Executor:
         if intent.intent_type == IntentType.BROAD_SCAN and len(df) > BROAD_SCAN_SAMPLE:
             df = df.tail(BROAD_SCAN_SAMPLE)
             sampled = True
-            trace.append(ToolCall(
+            self._record(trace, ToolCall(
                 tool="budget_sample",
                 reason=f"broad scan bounded to most recent {BROAD_SCAN_SAMPLE:,} "
                        f"transactions for interactive latency",
@@ -73,20 +81,20 @@ class Executor:
 
             if step == "eda":
                 eda_out = profile(df)
-                trace.append(ToolCall(tool="eda",
+                self._record(trace, ToolCall(tool="eda",
                                       reason=plan.reasons.get("eda", ""),
                                       rows_in=len(df), rows_out=0,
                                       duration_ms=(time.time() - t0) * 1000))
 
             elif step == "features":
-                trace.append(ToolCall(tool="features",
+                self._record(trace, ToolCall(tool="features",
                                       reason=plan.reasons.get("features", ""),
                                       rows_in=len(df), rows_out=len(df),
                                       duration_ms=(time.time() - t0) * 1000))
 
             elif step == "aggregate":
                 agg = self._aggregate(df, intent)
-                trace.append(ToolCall(tool="aggregate",
+                self._record(trace, ToolCall(tool="aggregate",
                                       reason=plan.reasons.get("aggregate", ""),
                                       rows_in=len(df), rows_out=len(agg),
                                       duration_ms=(time.time() - t0) * 1000))
@@ -98,7 +106,7 @@ class Executor:
             elif step in DETECTORS:
                 found = DETECTORS[step](df)
                 hits.extend(found)
-                trace.append(ToolCall(tool=step,
+                self._record(trace, ToolCall(tool=step,
                                       reason=plan.reasons.get(step, ""),
                                       rows_in=len(df), rows_out=len(found),
                                       duration_ms=(time.time() - t0) * 1000))
@@ -109,7 +117,8 @@ class Executor:
 
         return {"intent": intent, "plan": plan, "trace": trace,
                 "results": results, "eda": eda_out, "sampled": sampled,
-                "scored": scored, "elapsed": round(time.time() - t_start, 2)}
+                "scored": scored, "all_hits": hits, "filtered_df": df,
+                "elapsed": round(time.time() - t_start, 2)}
 
     def _apply_filters(self, plan, df, trace):
         f = plan.intent.filters
@@ -130,7 +139,7 @@ class Executor:
             elif step == "filter_currency":
                 df = F.filter_by_currency(df, [f.currency], verbose=False)
 
-            trace.append(ToolCall(tool=step,
+            self._record(trace, ToolCall(tool=step,
                                   reason=plan.reasons.get(step, ""),
                                   rows_in=before, rows_out=len(df),
                                   duration_ms=(time.time() - t0) * 1000))

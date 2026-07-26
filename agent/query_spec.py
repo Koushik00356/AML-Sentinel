@@ -125,3 +125,5 @@ def execute(df: pd.DataFrame, spec: dict) -> tuple[pd.DataFrame | float, str]:
              "median": series.median, "min": series.min, "max": series.max,
              "nunique": series.nunique}[a["agg"]]()
     return float(value), "; ".join(applied)
+
+## dda
