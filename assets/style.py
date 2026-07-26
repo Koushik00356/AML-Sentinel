@@ -1,83 +1,136 @@
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root {
-  --paper:#F7F6F3; --ink:#16202B; --rule:#D8D5CE; --muted:#6E7681;
-  --signal:#1F5C8C; --high:#A62B1F; --med:#B0761C; --low:#6B7280;
+  --paper:#F7F6F3; --card:#FFFDFA; --ink:#16202B; --rule:#E2DFD8;
+  --muted:#6E7681; --signal:#1F5C8C; --signal-soft:#E8EFF5;
+  --high:#A62B1F; --med:#B0761C; --low:#6B7280;
 }
 
 .stApp { background: var(--paper); }
-html, body, [class*="css"] { color: var(--ink); }
-
-h1, h2, h3 {
-  font-family:'Archivo',sans-serif !important;
-  letter-spacing:-0.02em; font-weight:700 !important;
+html, body, [class*="css"], p, li, label, .stMarkdown {
+  font-family:'Archivo',sans-serif !important; color:var(--ink);
 }
-h1 { font-size:2.1rem !important; text-transform:uppercase; letter-spacing:0.04em !important; }
+
+h1 {
+  font-family:'Archivo',sans-serif !important;
+  font-size:1.9rem !important; font-weight:700 !important;
+  letter-spacing:0.03em !important; text-transform:uppercase;
+  margin-bottom:0 !important; padding-bottom:10px;
+  border-bottom:2px solid var(--ink);
+}
+h2, h3 { font-family:'Archivo',sans-serif !important; font-weight:600 !important; }
 
 .eyebrow {
-  font-family:'Archivo',sans-serif; font-size:0.68rem; font-weight:600;
-  text-transform:uppercase; letter-spacing:0.14em; color:var(--muted);
-  border-bottom:1px solid var(--rule); padding-bottom:6px; margin:22px 0 12px;
+  font-size:0.68rem; font-weight:600; text-transform:uppercase;
+  letter-spacing:0.14em; color:var(--muted);
+  border-bottom:1px solid var(--rule); padding-bottom:6px; margin:26px 0 14px;
 }
 
-.mono, code, .stDataFrame { font-family:'IBM Plex Mono',monospace !important; }
+/* metrics as cards */
+[data-testid="stMetric"] {
+  background:var(--card); border:1px solid var(--rule);
+  padding:14px 16px; border-radius:2px;
+}
+[data-testid="stMetricValue"] {
+  font-family:'IBM Plex Mono',monospace !important;
+  font-size:1.45rem !important; font-weight:600 !important;
+}
+[data-testid="stMetricLabel"] {
+  font-size:0.64rem !important; text-transform:uppercase;
+  letter-spacing:0.1em; color:var(--muted) !important;
+}
+
+/* query box */
+.stTextInput input {
+  font-family:'IBM Plex Mono',monospace !important; font-size:0.95rem !important;
+  background:var(--card) !important; border:1px solid var(--rule) !important;
+  border-radius:2px !important; padding:14px 16px !important;
+}
+.stTextInput input:focus { border-color:var(--signal) !important; box-shadow:none !important; }
+
+/* example cards for the empty state */
+.grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:6px; }
+.qcard {
+  background:var(--card); border:1px solid var(--rule); border-left:2px solid var(--signal);
+  padding:14px 16px; border-radius:0;
+}
+.qcard-k {
+  font-size:0.62rem; text-transform:uppercase; letter-spacing:0.1em;
+  color:var(--signal); font-weight:600; margin-bottom:6px;
+}
+.qcard-q { font-family:'IBM Plex Mono',monospace; font-size:0.82rem; line-height:1.45; }
 
 /* funnel trace */
-.trace-row { display:flex; align-items:center; gap:12px; margin:3px 0; }
+.trace-row { display:flex; align-items:center; gap:12px; margin:4px 0; }
 .trace-name {
-  font-family:'IBM Plex Mono',monospace; font-size:0.76rem;
-  width:132px; text-align:right; color:var(--ink);
+  font-family:'IBM Plex Mono',monospace; font-size:0.75rem;
+  width:130px; text-align:right; font-weight:500;
 }
-.trace-bar {
-  height:20px; background:var(--signal); opacity:0.85;
-  border-radius:1px; min-width:2px;
-  transition:width .5s cubic-bezier(.2,.8,.2,1);
-}
-.trace-val {
-  font-family:'IBM Plex Mono',monospace; font-size:0.72rem;
-  color:var(--muted); white-space:nowrap;
-}
-.trace-why { font-size:0.7rem; color:var(--muted); font-style:italic; }
+.trace-bar { height:18px; background:var(--signal); border-radius:1px; min-width:3px; }
+.trace-val { font-family:'IBM Plex Mono',monospace; font-size:0.71rem; color:var(--muted); white-space:nowrap; }
+.trace-why { font-size:0.72rem; color:var(--muted); }
 .trace-skip {
-  font-family:'IBM Plex Mono',monospace; font-size:0.72rem;
-  color:var(--muted); text-decoration:line-through; opacity:.55;
+  font-family:'IBM Plex Mono',monospace; font-size:0.71rem;
+  color:var(--muted); text-decoration:line-through; opacity:.5;
 }
 
 /* case cards */
 .case {
-  border:1px solid var(--rule); border-left:3px solid var(--rule);
-  background:#FFFDFA; padding:16px 18px; margin-bottom:12px;
+  background:var(--card); border:1px solid var(--rule);
+  border-left:3px solid var(--rule); padding:18px 20px; margin-bottom:14px;
 }
 .case-high { border-left-color:var(--high); }
 .case-med  { border-left-color:var(--med); }
 .case-low  { border-left-color:var(--low); }
-.case-id {
-  font-family:'IBM Plex Mono',monospace; font-size:1.05rem;
-  font-weight:600; letter-spacing:0.02em;
-}
+.case-id { font-family:'IBM Plex Mono',monospace; font-size:1.02rem; font-weight:600; }
 .badge {
-  font-family:'Archivo',sans-serif; font-size:0.66rem; font-weight:700;
-  text-transform:uppercase; letter-spacing:0.12em;
-  padding:3px 9px; border:1px solid currentColor;
+  font-size:0.62rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.12em; padding:4px 10px; border:1px solid currentColor;
 }
-.b-high { color:var(--high); } .b-med { color:var(--med); } .b-low { color:var(--low); }
-.reason { font-size:0.87rem; line-height:1.5; margin:8px 0; padding-left:14px;
-          border-left:1px solid var(--rule); }
+.b-high{color:var(--high)} .b-med{color:var(--med)} .b-low{color:var(--low)}
+.reason {
+  font-size:0.87rem; line-height:1.55; margin:10px 0;
+  padding:8px 0 8px 14px; border-left:1px solid var(--rule); color:#2c3742;
+}
 .action {
-  font-family:'Archivo',sans-serif; font-size:0.74rem; font-weight:600;
-  text-transform:uppercase; letter-spacing:0.1em; margin-top:12px;
-  padding-top:10px; border-top:1px solid var(--rule);
+  font-size:0.72rem; font-weight:600; text-transform:uppercase;
+  letter-spacing:0.1em; margin-top:14px; padding-top:12px;
+  border-top:1px solid var(--rule); color:var(--signal);
 }
 
-[data-testid="stMetricValue"] { font-family:'IBM Plex Mono',monospace !important; font-size:1.5rem !important; }
-[data-testid="stMetricLabel"] {
-  font-family:'Archivo',sans-serif !important; font-size:0.66rem !important;
-  text-transform:uppercase; letter-spacing:0.1em; color:var(--muted) !important;
+section[data-testid="stSidebar"] { background:#EFEDE8; border-right:1px solid var(--rule); }
+section[data-testid="stSidebar"] .stButton button {
+  font-family:'IBM Plex Mono',monospace; font-size:0.75rem;
+  text-align:left; background:var(--card); border:1px solid var(--rule);
+  border-radius:2px; color:var(--ink);
 }
-#MainMenu, footer, header { visibility:hidden; }
+section[data-testid="stSidebar"] .stButton button:hover {
+  border-color:var(--signal); color:var(--signal);
+}
+
+#MainMenu, footer { visibility:hidden; }
+header[data-testid="stHeader"] { background:transparent; height:0; }
+[data-testid="stSidebarCollapsedControl"] { display:block !important; z-index:999; }
 </style>
+"""
+
+EMPTY_STATE = """
+<div class='grid'>
+  <div class='qcard'><div class='qcard-k'>Single entity</div>
+    <div class='qcard-q'>Is customer 80004B890 suspicious?</div></div>
+  <div class='qcard'><div class='qcard-k'>Typology + time</div>
+    <div class='qcard-q'>Find structuring patterns in the last 3 days</div></div>
+  <div class='qcard'><div class='qcard-k'>Threshold rule</div>
+    <div class='qcard-q'>Which customers made 10+ transactions under $10,000?</div></div>
+  <div class='qcard'><div class='qcard-k'>Graph topology</div>
+    <div class='qcard-q'>Show me circular flows over $50,000</div></div>
+  <div class='qcard'><div class='qcard-k'>Free-form</div>
+    <div class='qcard-q'>Top 10 accounts by total volume</div></div>
+  <div class='qcard'><div class='qcard-k'>Capability</div>
+    <div class='qcard-q'>What can you do?</div></div>
+</div>
 """
 
 

@@ -17,28 +17,42 @@ Return JSON only, no prose, no markdown fences.
 Available columns: timestamp, tx_id, sender, receiver, amount, amount_usd,
 currency, tx_type, is_laundering
 
+IMPORTANT — 'timestamp' is a datetime, not a number. The dataset covers
+%(start)s to %(end)s. For a specific date use two filters with ISO strings:
+  {"column":"timestamp","op":">=","value":"2022-09-10"}
+  {"column":"timestamp","op":"<","value":"2022-09-11"}
+"day 10" means the 10th day of that month. Never compare timestamp to a bare integer.
+
+'tx_type' values include: Cheque, Credit Card, ACH, Cash, Reinvestment, Wire, Bitcoin.
+'sender' and 'receiver' are account IDs — to rank accounts group by 'sender' alone.
+
 Spec format:
 {
   "filters": [{"column": str, "op": "==|!=|>|>=|<|<=|in|contains", "value": any}],
-  "group_by": [column, ...]        // optional, [] for a whole-dataset answer
+  "group_by": [column, ...],
   "aggregations": [{"column": str, "agg": "count|sum|mean|median|min|max|nunique",
                     "alias": str}],
-  "sort_by": str or null,          // must be an alias from aggregations
+  "sort_by": str or null,
   "ascending": bool,
-  "limit": int,                    // max 50
-  "answer_template": str           // one sentence, use {value} for a scalar result
+  "limit": int,
+  "answer_template": str
 }
 
-If the question cannot be answered from these columns, return
+If it cannot be answered from these columns, return
 {"unsupported": true, "reason": "<short reason>"}
 
-Question: %s"""
+Question: %(question)s"""
 
 
-def request_spec(question: str) -> dict | None:
+def request_spec(question: str, date_range: tuple | None = None) -> dict | None:
     key = os.getenv("GROQ_API_KEY")
     if not key:
         return None
+
+    start, end = date_range or ("2022-09-01", "2022-09-18")
+    prompt = SPEC_PROMPT % {"question": question, "start": start, "end": end}
+    
+    
     try:
         import requests
         r = requests.post(
@@ -87,8 +101,30 @@ def execute(df: pd.DataFrame, spec: dict) -> tuple[pd.DataFrame | float, str]:
 
     for f in spec.get("filters", []):
         col, op, val = f["column"], f["op"], f["value"]
+
         if col not in d.columns:
             continue
+
+        if col == "timestamp":
+            if isinstance(val, (int, float)):
+                # "day 10" arrived as a number — resolve to that day of the month
+                base = d["timestamp"].min()
+                try:
+                    val = pd.Timestamp(year=base.year, month=base.month,
+                                       day=int(val))
+                except ValueError:
+                    continue
+                if op == "==":
+                    d = d[d["timestamp"].dt.date == val.date()]
+                    applied.append(f"timestamp on {val:%Y-%m-%d}")
+                    continue
+            else:
+                val = pd.Timestamp(val)
+            if op == "==":
+                d = d[d["timestamp"].dt.date == val.date()]
+                applied.append(f"timestamp on {val:%Y-%m-%d}")
+                continue    
+
         if op == "==":
             d = d[d[col] == val]
         elif op == "!=":
@@ -125,5 +161,22 @@ def execute(df: pd.DataFrame, spec: dict) -> tuple[pd.DataFrame | float, str]:
              "median": series.median, "min": series.min, "max": series.max,
              "nunique": series.nunique}[a["agg"]]()
     return float(value), "; ".join(applied)
+
+def build_context(df: pd.DataFrame) -> str:
+    """Compact factual summary of the data — schema, ranges, categories."""
+    lines = [
+        f"Rows: {len(df):,}",
+        f"timestamp: datetime, {df['timestamp'].min():%Y-%m-%d} to "
+        f"{df['timestamp'].max():%Y-%m-%d}",
+        f"amount: numeric, median {df['amount'].median():,.0f}, "
+        f"max {df['amount'].max():,.0f}",
+        f"amount_usd: numeric, USD-normalised equivalent of amount",
+        f"currency: categorical — {', '.join(df['currency'].value_counts().head(6).index)}",
+        f"tx_type: categorical — {', '.join(df['tx_type'].value_counts().head(8).index)}",
+        f"sender / receiver: account ID strings, "
+        f"{pd.concat([df['sender'], df['receiver']]).nunique():,} unique",
+        f"is_laundering: 0 or 1 label, {int((df['is_laundering']==1).sum()):,} positives",
+    ]
+    return "\n".join(lines)
 
 ## dda

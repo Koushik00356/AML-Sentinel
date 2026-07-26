@@ -16,10 +16,13 @@ from assets.style import CSS, case_card, funnel
 from tools import viz
 from tools.filters import filter_analyzable
 from tools.loader import SCHEMA_MAPS, load, load_uploaded
+from assets.style import CSS, case_card, funnel, EMPTY_STATE
 
+    
 load_dotenv()
 
-st.set_page_config(page_title="AML Sentinel", page_icon="🛡", layout="wide")
+st.set_page_config(page_title="AML Sentinel", page_icon="🛡",
+                   layout="wide", initial_sidebar_state="expanded")
 st.markdown(CSS, unsafe_allow_html=True)
 
 EXAMPLES = [
@@ -54,6 +57,10 @@ def get_uploaded(raw: bytes, schema: str):
     df, hubs = filter_analyzable(df, verbose=False)
     return df, len(hubs)
 
+@st.cache_data
+def data_context(_df):
+    from agent.query_spec import build_context
+    return build_context(_df)
 
 def init_state():
     st.session_state.setdefault("history", [])
@@ -175,7 +182,9 @@ def main():
                           placeholder="Find structuring patterns in the last 3 days")
 
     if not query:
-        st.info("Type a question above, or pick an example from the sidebar.")
+        st.markdown("<div class='eyebrow'>What you can ask</div>",
+                    unsafe_allow_html=True)
+        st.markdown(EMPTY_STATE, unsafe_allow_html=True)
         return
 
     intent = parse(query)
