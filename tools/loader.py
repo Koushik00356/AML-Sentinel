@@ -51,3 +51,30 @@ def load(path: str | Path, schema: str = "ibm_aml",
 
     df = df.dropna(subset=["timestamp", "amount"])
     return df.sort_values("timestamp").reset_index(drop=True)
+
+def _normalise(df: pd.DataFrame, schema: str) -> pd.DataFrame:
+    if schema not in SCHEMA_MAPS:
+        raise ValueError(f"unknown schema '{schema}'")
+    df = df.rename(columns=SCHEMA_MAPS[schema])
+    if "tx_id" not in df.columns:
+        df["tx_id"] = df.index.astype(str)
+    for col in CANONICAL:
+        if col not in df.columns:
+            df[col] = pd.NA
+    df = df[CANONICAL].copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
+    df["sender"] = df["sender"].astype(str)
+    df["receiver"] = df["receiver"].astype(str)
+    df["is_laundering"] = pd.to_numeric(
+        df["is_laundering"], errors="coerce").fillna(0).astype(int)
+    return df.dropna(subset=["timestamp", "amount"]).sort_values(
+        "timestamp").reset_index(drop=True)
+
+
+def load(path, schema="ibm_aml", nrows=None):
+    return _normalise(pd.read_csv(path, nrows=nrows), schema)
+
+
+def load_uploaded(file_obj, schema="demo", nrows=None):
+    return _normalise(pd.read_csv(file_obj, nrows=nrows), schema)
