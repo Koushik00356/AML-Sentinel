@@ -30,7 +30,7 @@ st.markdown(CSS, unsafe_allow_html=True)
 
 EXAMPLES = [
     "what can you do?",
-    "Is customer 80004B890 suspicious?",
+    "Is customer 8000A7470 suspicious?",
     "Find structuring patterns in the last 3 days",
     "Which customers made 10+ transactions under $10,000?",
     "Show me circular flows over $50,000",

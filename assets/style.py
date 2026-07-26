@@ -1,5 +1,6 @@
 CSS = """
 <style>
+.stApp { border-top: 5px solid red !important; }
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root {
@@ -113,6 +114,55 @@ section[data-testid="stSidebar"] .stButton button:hover {
 #MainMenu, footer { visibility:hidden; }
 header[data-testid="stHeader"] { background:transparent; height:0; }
 [data-testid="stSidebarCollapsedControl"] { display:block !important; z-index:999; }
+
+/* tab bar */
+.stTabs [data-baseweb="tab-list"] { gap:4px; border-bottom:1px solid var(--rule); }
+.stTabs [data-baseweb="tab"] {
+  font-family:'Archivo',sans-serif; font-size:0.78rem; font-weight:600;
+  text-transform:uppercase; letter-spacing:0.08em; color:var(--muted);
+  padding:10px 18px; border-radius:0;
+}
+.stTabs [aria-selected="true"] {
+  color:var(--signal) !important; border-bottom:2px solid var(--signal) !important;
+}
+
+/* metric cards lift */
+[data-testid="stMetric"] {
+  box-shadow:0 1px 2px rgba(22,32,43,.06);
+  transition:border-color .15s;
+}
+[data-testid="stMetric"]:hover { border-color:var(--signal); }
+
+/* case cards */
+.case { box-shadow:0 1px 3px rgba(22,32,43,.07); transition:box-shadow .15s; }
+.case:hover { box-shadow:0 3px 10px rgba(22,32,43,.12); }
+
+/* trace bars get depth */
+.trace-bar {
+  background:linear-gradient(90deg,var(--signal),#2E7BB8);
+  box-shadow:0 1px 2px rgba(31,92,140,.25);
+}
+.trace-row:hover .trace-name { color:var(--signal); }
+
+/* buttons */
+.stButton button {
+  transition:all .15s; border-radius:2px;
+}
+.stButton button:hover { transform:translateX(2px); }
+[data-testid="stBaseButton-primary"] {
+  background:var(--signal) !important; border:none !important;
+  font-family:'Archivo',sans-serif !important; font-weight:600 !important;
+  text-transform:uppercase; letter-spacing:0.08em; font-size:0.78rem !important;
+}
+
+/* dataframes */
+.stDataFrame { border:1px solid var(--rule); border-radius:2px; }
+
+/* download button */
+[data-testid="stDownloadButton"] button {
+  border:1px solid var(--signal) !important; color:var(--signal) !important;
+  background:transparent !important;
+}
 </style>
 """
 
